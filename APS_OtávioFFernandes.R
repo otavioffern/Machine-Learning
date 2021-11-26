@@ -1,5 +1,6 @@
 ##APS##
 #install.packages('Rcpp')
+#install.packages('caret')
 library(Rcpp)
 library(pROC)
 library(ISLR)
@@ -9,6 +10,7 @@ library(randomForest)
 library(fastAdaboost)
 library(MASS)
 library(gbm)
+library(caret)
 
 setwd("C:/Users/ferna/Desktop/Modelagem Preditiva/APS")
 
@@ -106,14 +108,32 @@ AUC <- data.frame(Modelo = c("Regressão Logística", "Árvores de Classificação"
                           auc(roc_boost)))
 AUC
 
+#ACURÁCIA
+
+rl_acur <- mean(y_hat == test$Exited)
+tree_acur <- mean(y_hat_tree == test$Exited)
+rf_acur <- mean(y_hat_rf == test$Exited)
+boost_acur <- mean(y_hat_boost == test$Exited)
+
+acuracia <- data.frame(Modelo = c("Regressão Logística", "Árvores de Classificação",
+                       "Random Forest","Boosting"), Acurácia = c(rl_acur, tree_acur, rf_acur, boost_acur))
+acuracia
+
 
 ## REGRESSÃO ##
 
-# Início----------
+
+
+# Início used cars----------
 
 #O objetivo é prever a variável price
 used <- read.csv("used_cars.csv")
-#fazendo de Yes/No para 1/0
+
+price = used$price
+used = model.matrix(price ~ ., data = used)
+used = data.frame(used)
+used$price = price
+str(used)
 
 set.seed(1234)
 
@@ -122,7 +142,7 @@ idx_used <- sample(1:nrow(used), size = round(0.7 * nrow(used)), replace = FALSE
 training_used <- used[idx_used, ]
 test_used <- used[-idx_used, ]
 
-# Linear regression
+# Linear regression---------------
 
 ols <- lm(price ~ ., data = training_used)
 
@@ -130,7 +150,7 @@ y_hat_ols <- predict(ols, newdata = test_used)
 
 (RMSE_ols <- sqrt(mean((y_hat_ols - test_used$price)^2)))
 
-# Single tree
+# Single tree----------------
 
 regtree <- tree(price ~ ., data = training_used)
 
@@ -143,25 +163,32 @@ y_hat_regtree <- predict(regtree, newdata = test_used)
 
 (RMSE_regtree <- sqrt(mean((y_hat_regtree - test_used$price)^2)))
 
-# Random Forest
+# Random Forest----------
 
 rf_used <- randomForest(price ~ ., data = training_used)
 
 y_hat_rf_used <- predict(rf_used, newdata = test_used)
 (RMSE_rf_used <- sqrt(mean((y_hat_rf_used - test_used$price)^2)))
 
-# Boosting
-training_used$isOneOwner = ifelse(training_used$isOneOwner == "Yes", 1, 0)
-test_used$isOneOwner = ifelse(test_used$isOneOwner == "Yes", 1, 0)
-training_used$trim = as.numeric(training_used$trim)
-test_used$trim = as.numeric(test_used$trim)
+# Boosting------------
+training_used$isOneOwner = as.numeric(training_used$isOneOwner)
+test_used$isOneOwner = as.numeric(test_used$isOneOwner)
 
 boost_used <- gbm(price ~ ., data = training_used,
              distribution = "gaussian",
              n.trees = 1000,
-             interaction.depth = 4, # maximum depth of each tree
-             shrinkage = 0.001)     # default lambda
+             interaction.depth = 5, # maximum depth of each tree
+             shrinkage = 0.002)     # default lambda
 
 y_hat_boost_used <- predict(boost_used, newdata = test_used, n.trees = 5000)
 
 (RMSE_boost_used <- sqrt(mean((y_hat_boost_used - test_used$price)^2)))
+
+#RMSE-----------------------
+RMSE <- data.frame(Modelo = c("OLS", "Árvore de Regressão"
+                             ,"Random Forest","Boosting"),
+                  RMSE = c(RMSE_ols,
+                          RMSE_regtree,
+                          RMSE_rf_used,
+                          RMSE_boost_used))
+RMSE
